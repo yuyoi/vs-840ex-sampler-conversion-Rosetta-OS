@@ -126,3 +126,8 @@ Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No 
 - Rosetta takes over the whole ESP2 (the SP-808 KEYS sampler + DDS-DSP synth programs are the same instruction set).
 - DSP-RAM sampling = short (~5-6 s total in 4 Mbit) but instant / pitched / polyphonic; long samples later via disk.
 - Menu: SAMPLER / SYNTH / FX / SYSTEM; the stock VS stays reachable only as a hidden SYSTEM entry (recovery/debug).
+- **Two ESP2 cores, exactly like the SP-808:** core 0 window 0x800000, core 1 window 0x801000, latch 0x802003
+  (SP-808: 0xC00000 / 0xC01000 / 0xC02003). RAM images: 0x5B3FFA = core 0, 0x5B4BFA = core 1 (the ROM picks by a
+  flag bit). The init 0x12D7FC writes 996 bytes to core 0, 2200 to core 1, 176 latch writes. On the SP-808 only
+  core 1 reaches the external delay RAM; expect the same here (HM514800, 4 Mbit). The SP-808 KEYS / DDS / MFX DSP
+  programs (keysdsp.py, mfxdsp.py) are written for this chip and should port with new I/O addresses.
