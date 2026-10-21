@@ -103,4 +103,5 @@ Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No 
 - Stock main loop 0x11B588: pops an event, dispatches by type (1 0x14E84E, 2 0x177898, 3 0x15EEC6, 4 0x163AF6), then 0x117D48 (the huge hand-written screen switch). Housekeeping each pass: 0x142A20, 0x177612, 0x13E6B6, 0x115AE6.
 - RAM: init data 0x5B58E4 (from flash 0x1F6EEE, 0x11BC), bss 0x5B6AA0-0x5EF32A, heap 0x5EF32A-0x5FFFFF (cleared at boot). Low DRAM: LCD 0x403200, disk sector buffer 0x403464 (64 KB), serial rings 0x401200 + n*0x800, big buffers from 0x413A8C. **On-chip 0xFFDC00-0xFFEBFF is unused (only stack depth); Rosetta's variables live at 0xFFDC00.**
 - Free flash: 0x1F80AA-0x1FFEFF (~32 KB). Rosetta code at 0x1F9000.
+- **UI rule (user): the folder-tab bar is for the home screen only; pages entered from it use the full 32 px (no top bar).**
 - **0.06 hook:** 0x11B588 `mov.w @er5,r0; cmp.w #3,r0` -> `jsr hook; nop`. hook runs home() once per power-on (magic 'RSTA' at 0xFFDC00), then redoes the 2 instructions; rts keeps the CCR for the following bne. home saves the LCD buffer, runs its own menu on Roland's event queue, restores the buffer on RECORDER.

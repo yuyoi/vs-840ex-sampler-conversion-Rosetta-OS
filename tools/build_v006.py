@@ -161,8 +161,12 @@ def assemble():
     # coming soon page
     a.label('soon')
     a.push_l(4); a.push_l(5); a.push_l(6)
-    a.jsr(ROM_CLR); a.bsr16('chrome')
-    rui.put_text(a, regs, (130 - 6 * 11) // 2, 16, 's_soon')
+    a.jsr(ROM_CLR)                                      # pages have no tab bar: the whole 32 px is content
+    a.mov_b_from_abs(CUR, 'r0l'); a.extu_w(0); a.extu_l(0); a.shll_l2(0)
+    a.mov_l_imm('items', 1); a.add_l_rr(0, 1); a.mov_l_ind(1, 6)    # er6 = name of the entered item
+    a.mov_w_imm(4, 0); a.mov_w_to_abs(0, regs[0]); a.mov_w_imm(4, 0); a.mov_w_to_abs(0, regs[1])
+    a.bsr16('bold')
+    rui.put_text(a, regs, 4, 18, 's_soon')
     a.pop_l(6); a.pop_l(5); a.pop_l(4)
     a.rts()
 
