@@ -75,3 +75,15 @@ Boot bitmask: b0 MONITOR, b1 SOLO, b2 INPUT, b3 EQ, b4 EFXL, b5 AUXL, b6 RIGHT, 
 
 File writer: 0x12AFAA(r0l drive, e0 0xFFFF, er1 name "NAME    EXT", stack: addr, len); writes len (64 KB multiple) from addr in 64 KB chunks.
 Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No flash boot block: the boot code is the CPU's ROM below 0x100000.
+
+## Boot ROM (dumped 2026-10-21 with v0.03, `vs840ex_bootrom.bin`, Roland code, not in git)
+- ROMDUMP.VS1 = 1 MB from 0x000000: **0x00000-0x1FFFF = the H8S/2655's 128 KB mask ROM** ("NMCPUMASK 11:45:23/Feb 24 1998"); 0x20000-0xFFFFF = empty CS0 bus (mostly FF + noise).
+- Vectors: reset -> 0x500; every other vector -> 0x110020 + 4n (the OS trampoline table).
+- Reset path 0x6D2: init -> **0x79C6 flash check** -> `jmp 0x110700` (OS entry). No key combos in the ROM.
+- 0x79C6:
+  - if an external ROM at 0x20600 carries "NM_SYSTEM" and a different build time than the flash -> version up from it (dev/service EPROM, absent here).
+  - else if the flash header at 0x110600 != "NM_SYSTEM" -> **"BAD FLASH!!"**, 10 s, drive init, then **0x7652 = version up from raw disk sectors**: header sector LBA 0x2F7FF must start with "NM_SYSTEM", pages 1..15 come from LBA 0x2F800 + n*0x80 (64 KB each) -> flash 0x100000 + n*64K. Fails -> "Can't VersionUp!" (hang).
+  - the flash sum at 0x1FFF00 is NOT checked by the ROM (only by the OS test screen).
+- So the ROM recovery only runs when the header is broken. **An OS build with a good header that crashes has no ROM rescue.** Rule: keep every patch after the OS's own update-file check (combo routine 0x11A9D2 -> 0x11B3DA -> 0x1164C6), so a disk update ("Version up ?") always stays reachable.
+- The raw-LBA layout matches the OS dev combos "VerupFatRESERVE/RELEASE" (they reserve those clusters) and the "VS-840 Version up DISK ID" field at 0x11064A.
+- ROM API used by the OS: 0x2E36 print string (r0 col, e0 row, er1 str), 0x296A print formatted, 0x4A6E memcpy (er0 dst, er1 src, len on stack), 0x4A4E memset, 0x4C4E delay ms, 0x2186 strcmp, 0x752C disk read (er0 LBA, r1l count, dst on stack), 0x6FD0 flash write page.
