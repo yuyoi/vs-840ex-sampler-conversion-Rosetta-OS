@@ -6,6 +6,8 @@ lock + dismount the volume -> read the whole card -> it must equal <expected.img
 
 usage (needs an elevated prompt if Windows refuses raw writes):
   python -I tools/cardwrite.py J <expected.img> <new.img>
+  python -I tools/cardwrite.py J - <new.img> <backup.img>    whatever is on the card now is saved to backup.img
+                                                              first, then replaced (VS + Windows changes discarded)
 """
 import ctypes, sys
 from ctypes import wintypes as W
@@ -47,13 +49,17 @@ def read_all(h, size):
 
 def main():
     letter, exp_p, new_p = sys.argv[1].rstrip(':\\'), sys.argv[2], sys.argv[3]
-    exp, new = open(exp_p, 'rb').read(), open(new_p, 'rb').read()
-    assert len(exp) == len(new) and len(exp) % 512 == 0
+    new = open(new_p, 'rb').read()
+    exp = None if exp_p == '-' else open(exp_p, 'rb').read()
+    assert len(new) % 512 == 0 and (exp is None or len(exp) == len(new))
     h = k32.CreateFileW('\\\\.\\%s:' % letter, GENERIC_RW, SHARE_RW, None, OPEN_EXISTING, 0, None)
     if h in (None, W.HANDLE(-1).value): raise SystemExit('open failed: %d (run elevated?)' % ctypes.get_last_error())
     ioctl(h, FSCTL_LOCK_VOLUME); ioctl(h, FSCTL_DISMOUNT_VOLUME)
     print('locked + dismounted')
-    cur = read_all(h, len(exp))
+    cur = read_all(h, len(new))
+    if exp is None:
+        open(sys.argv[4], 'wb').write(cur); exp = cur
+        print('backup of the card as it was:', sys.argv[4])
     if cur != exp:
         bad = [i for i in range(0, len(exp), 512) if cur[i:i + 512] != exp[i:i + 512]]
         ioctl(h, FSCTL_UNLOCK_VOLUME)

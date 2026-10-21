@@ -52,3 +52,26 @@
 2. Dump the mask ROM + boot block to disk (SP-808 trick: call the OS save-file routine on 0x000000-0x10FFFF), then load them into h8emu.
 3. Map the LCD (CS5, 0x2E36 print API), key scan, normal boot screen -> own UI + Hex Girl boot logo.
 4. DSP: one ESP2 (CS4), via sp808 esp.py -> own FX, looper/sampler, DDS synth.
+
+## Power-on key combos (scan 0x11AAD8, key names 0x1F6F2E)
+Key codes: 09-10 TR1-8, 11 MODE, 12 INPUT, 13 EQ, 14 PAN, 15 EFXL, 16 AUXL, 17 SOLO, 18 MONITOR, 19 EFFECT, 1A EZ, 1B DISP, 1C UTILITY, 1D UNDO, 1E VARI, 1F UP, 20 RIGHT, 21 DOWN, 22 LEFT, 23 ENTER, 24 EXIT, 25 PUNCH, 26-29 LOC1-4, 2A LOOP, 2B SCRUB, 2C SCENE, 2D CLEAR, 2E ZERO, 2F REW, 30 FF, 31 STOP, 32 PLAY, 33 REC, 34 SHIFT, 35 FOOT.
+Boot bitmask: b0 MONITOR, b1 SOLO, b2 INPUT, b3 EQ, b4 EFXL, b5 AUXL, b6 RIGHT, b7 REC, b8-b11 TR1-4, b12 MODE, b13 ENTER, b14 PLAY, b15 PAN.
+
+| mask | keys | does |
+|---|---|---|
+| 0003 | MONITOR + SOLO | test mode (0x184258 r0=?) |
+| 001C / 002C / 8028 / 8012 | INPUT+EQ+EFXL / INPUT+EQ+AUXL / EQ+AUXL+PAN / SOLO+EFXL+PAN | other test modes (0x184258) |
+| 3004 | MODE + INPUT + ENTER | receive MIDI-EX (OS update over MIDI, 0x16BF24) |
+| 3008 | MODE + ENTER + EQ | send MIDI-EX (0x16BD66) |
+| 1044 | MODE + RIGHT + INPUT | "Developer MODE!" |
+| 41C0 | PLAY + REC + TR1 + RIGHT | SYS&USR FILE Wr ($SYSPROG.VS1 = flash 0x100000, 1 MB) |
+| 4180 | PLAY + REC + TR1 | SYSTEM FILE Wr ($SYSPRO2.VS1 = 0x110000, 0xF0000). **0.02: ROM dump, ROMDUMP.VS1 = 0x000000, 1 MB** |
+| 4280 / 4480 / 4880 | PLAY + REC + TR2 / TR3 / TR4 | SYSTEM FILE Del / USER FILE Wr ($USERDAT.VS1 = 0x100000, 64 KB) / USER FILE Del |
+| 2F00 | ENTER + TR1-4 | WRITE FLAG ? |
+| 0180 | REC + TR1 | Force HD MODE |
+| 2040 / 2001 | ENTER + RIGHT / ENTER + MONITOR | VerupFat RESERVE / RELEASE |
+| 0440 / 0240 | TR3 + RIGHT / TR2 + RIGHT | Zip Compare Test / Zip Verify Copy |
+| 2080 | ENTER + REC | Force Init |
+
+File writer: 0x12AFAA(r0l drive, e0 0xFFFF, er1 name "NAME    EXT", stack: addr, len); writes len (64 KB multiple) from addr in 64 KB chunks.
+Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No flash boot block: the boot code is the CPU's ROM below 0x100000.
