@@ -131,3 +131,16 @@ Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No 
   flag bit). The init 0x12D7FC writes 996 bytes to core 0, 2200 to core 1, 176 latch writes. On the SP-808 only
   core 1 reaches the external delay RAM; expect the same here (HM514800, 4 Mbit). The SP-808 KEYS / DDS / MFX DSP
   programs (keysdsp.py, mfxdsp.py) are written for this chip and should port with new I/O addresses.
+
+## Stock DSP programs and I/O (2026-10-22)
+- Boot program loader 0x113D84: 0x291 words per core, core 0 from OS 0x1AC0C6, core 1 from 0x1ACB0E (4-byte
+  entries), via ROM 0x5A3A. Test-mode loader 0x18227C: 0x300 words, core 0 0x1D821A, core 1 0x1D8E1A (AUDIO check).
+- ROM 0x5A3A = write one DSP word: r0 = byte offset (bit 12 = core 1), er1 -> 4 bytes (ROM order + E); waits on the
+  status 0x800003 bit 7, writes the RAM image (0x5B3FFA / 0x5B4BFA) and the chip. ROM 0x4DCA(r0 = n) writes latch
+  shadow byte 0x5B57FE + n to 0x802000 + n (latch 0x802003: shadow 0x5B5801, bit 0 = coefficient mode).
+  ROM pointers: 0x1176 = 0x800000, 0x117A = 0x802000, 0x117E = 0x800003.
+- **Core 0 I/O:** inputs g[0B] g[0D] g[0F] g[11] (4 channels), master g[C0] / g[C2]; other outputs / sends g[96]
+  g[98] g[8A]-g[90] g[9E]. Core 1 reads g[17] g[19] g[41] g[43] (sends?), writes g[80] g[82] g[A2]-g[AC].
+  Stock core 0 ends with INT at 0x28F, no jumps; i[44]/i[45] are free.
+- **0.08 SOUND TEST** (tools/vsdsp.py, simulated in esp.py): a 32-word block at core-0 word 0x2C0 = saw 440 Hz
+  (-18 dB) and/or the 4 inputs at half gain -> every output candidate; OFF restores the saved stock words.
