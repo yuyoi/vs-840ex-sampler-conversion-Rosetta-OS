@@ -194,13 +194,18 @@ def assemble():
     rui.put_text(a, regs, 4, 18, 's_soon')
     a.rts()
 
-    def rect_xywh(x, y_reg_or_val, w, h_val, mode):
+    def reg16(r):
+        """'r4' -> 4, 'e6' -> 14 (16-bit register numbers for h8asm)"""
+        return int(r[1]) + (8 if r[0] == 'e' else 0)
+
+    def rect_xywh(x, y, w, h, mode):
+        """filled rect; y and h are numbers or 16-bit register names ('r1', 'e6'): never a bare int for a register"""
         a.mov_w_imm(x, 0); a.mov_w_to_abs(0, RX)
-        if isinstance(y_reg_or_val, int): a.mov_w_imm(y_reg_or_val, 0); a.mov_w_to_abs(0, RY)
-        else: a.mov_w_to_abs(y_reg_or_val, RY)
+        if isinstance(y, str): a.mov_w_to_abs(reg16(y), RY)
+        else: a.mov_w_imm(y, 0); a.mov_w_to_abs(0, RY)
         a.mov_w_imm(w, 0); a.mov_w_to_abs(0, RW)
-        if isinstance(h_val, int): a.mov_w_imm(h_val, 0); a.mov_w_to_abs(0, RH)
-        else: a.mov_w_to_abs(h_val, RH)
+        if isinstance(h, str): a.mov_w_to_abs(reg16(h), RH)
+        else: a.mov_w_imm(h, 0); a.mov_w_to_abs(0, RH)
         a.mov_b_imm(mode, 'r0l'); a.mov_b_to_abs('r0l', RM); a.bsr16('rect')
 
     # draw_list(er5 = page)
@@ -228,7 +233,7 @@ def assemble():
     a.label('dl_nochrome')
     # frame line x 0 and scroll frame x 130/135 over the rows area
     a.mov_w_from_abs(T_Y0, 4); a.mov_w_imm(32, 0); a.sub_w_rr(4, 0); a.mov_w_rr(0, 14)   # e6 = area height
-    rect_xywh(0, 4, 1, 14, 0); rect_xywh(130, 4, 1, 14, 0); rect_xywh(135, 4, 1, 14, 0)
+    rect_xywh(0, 'r4', 1, 'e6', 0); rect_xywh(130, 'r4', 1, 'e6', 0); rect_xywh(135, 'r4', 1, 'e6', 0)
     # rows: T_IDX = TOP, y = Y0
     a.mov_l_ld_disp(12, 5, 0); a.mov_b_ld(0, 'r0l'); a.mov_b_to_abs('r0l', T_IDX)
     a.mov_b_from_abs(T_N, 'r6l')                        # r6l = rows left
@@ -273,7 +278,7 @@ def assemble():
     a.mov_w_from_abs(T_Y0, 0); a.cmp_w_rr(1, 0); a.beq('dl_bar_go')                 # first row: no lift
     a.add_w_imm(0xFFFF, 1); a.mov_w_imm(9, 4)
     a.label('dl_bar_go')
-    rect_xywh(1, 1, 129, 4, 1)
+    rect_xywh(1, 'r1', 129, 'r4', 1)
     a.pop_l(6); a.pop_l(4)
     a.rts()
 
