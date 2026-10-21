@@ -87,3 +87,12 @@ Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No 
 - So the ROM recovery only runs when the header is broken. **An OS build with a good header that crashes has no ROM rescue.** Rule: keep every patch after the OS's own update-file check (combo routine 0x11A9D2 -> 0x11B3DA -> 0x1164C6), so a disk update ("Version up ?") always stays reachable.
 - The raw-LBA layout matches the OS dev combos "VerupFatRESERVE/RELEASE" (they reserve those clusters) and the "VS-840 Version up DISK ID" field at 0x11064A.
 - ROM API used by the OS: 0x2E36 print string (r0 col, e0 row, er1 str), 0x296A print formatted, 0x4A6E memcpy (er0 dst, er1 src, len on stack), 0x4A4E memset, 0x4C4E delay ms, 0x2186 strcmp, 0x752C disk read (er0 LBA, r1l count, dst on stack), 0x6FD0 flash write page.
+
+## LCD (decoded 2026-10-21)
+- Controller at CS5: 0xA00000 = command/status (bit 7 busy), 0xA00001 = data. Init (ROM 0x2594): 01 02 13 08 05 20 40 80 FF; address = 0x20|row (17) + 0x80|col (34). Only the ROM touches it; an interrupt streams the shadow buffer.
+- **Shadow buffer 0x403200, 17 strips x 0x22 bytes.** Strip g = x 8g..8g+7; bytes 2..33 = dot rows 0..31 (MSB = left); bytes 0..1 probably the segment part (time digits, meters). Dot matrix = **136 x 32**. ROM 0x268A clears it (0x242 bytes).
+- Text: ROM 0x2E36 print(r0 col, e0 row, er1 str) uses 6x8 cells -> 4 lines x 22 chars.
+- Bitmaps: ROM 0x4106 blit(r0h y?, r0l x, r1h h-1, r1l w-1, stack src); source = rows of ceil(w/8) bytes, MSB left.
+- **Boot splash** = 0x113DC0 (called from the main boot at 0x11AA4C, right after LCD init + clear): blit 136x32 from **0x1B57EF** (544 bytes). Second small bitmap 0x1B56AF (320 bytes) at x=0x3B from 0x113DDA (called from 0x113EE4).
+- Main boot = 0x11A9D2 (from the OS entry 0x110700 -> 0x1108E6): init, LCD, splash, 500 ms key-combo window, combos, update-file check 0x11B3DA, then the main UI.
+- tools/vsemu.py = VS memory map on h8emu (ROM + OS + LCD regs); runs ROM routines like 0x2E36 natively. A full boot stops at LCD waits that need interrupts (0x42B0 waits for 0xFFF88C == 4).
