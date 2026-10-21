@@ -27,6 +27,8 @@ ROOT = build_v004.ROOT
 BASE = 0x110000
 CODE = 0x1F9000                         # free flash after the OS data (0x1F80AA-0x1FFEFF is all FF)
 VERSION = b'ROSETTA OS 0.06'
+CF_FIX = '--no-cf-fix' not in sys.argv     # 0.06b: without the 0.05 drive-check patch (it hung the boot on hw)
+if not CF_FIX: VERSION = b'ROSETTA OS 0.6b'
 
 # ROM / OS routines
 ROM_CLR, ROM_PRINT, ROM_DELAY = 0x268A, 0x2E36, 0x4C4E
@@ -197,10 +199,12 @@ def build_image():
     patches = [
         (0x624, b'VS-840 Ver 2.05', VERSION),
         (S, bytes(img[S:S + len(bits)]), bits),
+    ] + ([
         (0x126E32 - BASE, bytes.fromhex('1999'), bytes.fromhex('0000')),
         (0x126E3A - BASE, bytes.fromhex('1999'), bytes.fromhex('0000')),
         (0x126E56 - BASE, bytes.fromhex('796000fd79200050'), bytes.fromhex('796000c079200040')),
         (0x126E6C - BASE, bytes.fromhex('796000fd79200050'), bytes.fromhex('796000c079200040')),
+    ] if CF_FIX else []) + [
         (HOOK_AT - BASE, bytes.fromhex('695079200003'), hook),
         (CODE - BASE, b'\xff' * len(code), code),
     ]
@@ -242,7 +246,7 @@ def test(img, labels):
 
 def main():
     img, code, labels = build_image()
-    out = os.path.join(ROOT, 'work', 'v006')
+    out = os.path.join(ROOT, 'work', 'v006' if CF_FIX else 'v006b')
     os.makedirs(out, exist_ok=True)
     open(os.path.join(out, 'os.bin'), 'wb').write(img)
     open(os.path.join(out, 'rosetta.bin'), 'wb').write(code)

@@ -22,6 +22,8 @@ def emit(a, ram):
 
     # ---- pix: r4 x, r5 y, r3h mode; clobbers r0-r2 ----
     a.label('pix')
+    a.cmp_w_imm(STRIPS * 8, 4); a.bcc('px_out')                      # clip: x >= 136 or y >= 32 -> nothing
+    a.cmp_w_imm(32, 5); a.bcc('px_out')
     a.mov_w_rr(4, 0); a.shlr_w(0); a.shlr_w(0); a.shlr_w(0)          # r0 = strip
     a.mov_b_imm(STRIDE, 'r1l'); a.mulxu_b('r1l', 0)                   # r0 = strip * 0x22
     a.extu_l(0); a.add_l_imm(LCD + 2, 0)
@@ -38,6 +40,7 @@ def emit(a, ram):
     a.xor_b_rr('r1h', 'r2l')
     a.label('px_st')
     a.mov_b_st('r2l', 0)
+    a.label('px_out')
     a.rts()
 
     # ---- rect: RX RY RW RH RM ----
@@ -58,9 +61,12 @@ def emit(a, ram):
     a.push_l(4); a.push_l(5); a.push_l(6)
     a.label('tx_ch')
     a.mov_b_ldinc(6, 'r0l'); a.cmp_b_imm(0, 'r0l'); a.beq16('tx_done')
+    a.mov_w_from_abs(RX, 1); a.cmp_w_imm(STRIPS * 8 - 5, 1); a.bcc16('tx_done')      # clip: glyph must fit in x
+    a.mov_w_from_abs(RY, 1); a.cmp_w_imm(32 - 7 + 1, 1); a.bcc16('tx_done')          # and in y (7 rows)
     a.extu_w(0); a.extu_l(0); a.shl32(0, 3); a.add_l_imm(FONT, 0); a.mov_l_rr(0, 1)   # er1 = glyph
     a.mov_w_from_abs(RX, 0); a.mov_b_rr('r0l', 'r3l'); a.and_b_imm(7, 'r3l')         # r3l = shift
     a.shlr_w(0); a.shlr_w(0); a.shlr_w(0)
+    a.mov_b_rr('r0l', 'r5h')                                                          # r5h = strip
     a.mov_b_imm(STRIDE, 'r2l'); a.mulxu_b('r2l', 0); a.extu_l(0); a.add_l_imm(LCD + 2, 0)
     a.mov_w_from_abs(RY, 2); a.extu_l(2); a.add_l_rr(0, 2)                            # er2 = dest
     a.mov_w_imm(7, 11)                                                                # e3 = rows
@@ -73,6 +79,7 @@ def emit(a, ram):
     a.label('tx_put')
     a.mov_b_ld(2, 'r4l'); a.or_b_rr('r0h', 'r4l'); a.mov_b_st('r4l', 2)
     a.cmp_b_imm(0, 'r0l'); a.beq('tx_nx')
+    a.cmp_b_imm(STRIPS - 1, 'r5h'); a.bcc('tx_nx')                                   # no strip right of 16
     a.mov_b_ld_disp(STRIDE, 2, 'r4l'); a.or_b_rr('r0l', 'r4l'); a.mov_b_st_disp('r4l', STRIDE, 2)
     a.label('tx_nx')
     a.adds1(2); a.dec_w1(11); a.bne('tx_row')
