@@ -2,8 +2,9 @@
 
 # VS-840EX Rosetta OS (sampler conversion)
 
-> **Early work, October 2026.** Roland's update format is cracked, a first trial build (**Rosetta OS 0.01**) is
-> built and on a CF card, and the **hardware test is next**. Nothing here has run on a real unit yet. Published early
+> **Early work, October 2026.** Roland's update format is cracked and the first trial build (**Rosetta OS 0.01**)
+> **runs on a real VS-840EX** (2026-10-21): installed from a CF card, test mode shows the new version and a good
+> flash sum. It only changes the version string so far; the real features come next. Published early
 > so people can follow along, check the findings and help. Questions, hardware reports and ideas:
 > **[Discord](https://discord.gg/R3CQkFdRtf)**.
 
@@ -51,7 +52,7 @@ Part of the Rosetta family, after [Rosetta ROM](https://github.com/yuyoi/Rompler
 |---|---|
 | decode / re-encode Roland's update, byte-exact both ways | works (PC side) |
 | flash sum + update checksums recomputed | works (PC side) |
-| Rosetta OS 0.01: version string only, data change, no code | built, on the CF card, **hw test pending** |
+| Rosetta OS 0.01: version string only, data change, no code | **works on hardware** (installed from CF, flash sum OK) |
 | VS card repair / add file / raw write without Windows touching it | works on a real card |
 | boot ROM + flash boot block dump | not done (the OS calls ~458 routines below 0x100000) |
 | LCD, keys, faders, DSP program map | not started |
@@ -74,7 +75,7 @@ python -I tools/build_v001.py                                            # -> wo
 Install, either way:
 - **MIDI:** hold **MODE + INPUT + ENTER** at power-on, answer YES to "Receive MIDI-EX?", then run
   `python -I tools/send_smf.py work/v001` (Windows, any MIDI interface). Answer YES at the end and power-cycle.
-- **Disk:** put `$SYSPRO2.VS1` in the root of a VS-formatted Zip/CF and power on: "Update SysPRG ?" -> YES.
+- **Disk (tested on the EX):** put `$SYSPRO2.VS1` in the root of a VS-formatted Zip/CF and power on: "Update SysPRG ?" -> YES.
   Use `vscard.py add` + `cardwrite.py`; **don't copy it with Windows Explorer** (see the card note above).
 
 Check: power on holding **MONITOR SEL + SOLO** (test mode). It should show `ROSETTA OS 0.01`, with no "Bad FLASH!!".
@@ -107,7 +108,7 @@ built images or SMFs: share this repo instead.
 
 - [x] Decode + re-encode Roland's update, byte-exact; flash sum and update checksums.
 - [x] VS card tools (Windows FAT12 misread, safe raw write).
-- [ ] Rosetta OS 0.01 on hardware (test mode shows the new version).
+- [x] Rosetta OS 0.01 on hardware: installed from CF, test mode shows `ROSETTA OS 0.01` + flash sum `04947642`.
 - [ ] Dump the boot ROM and flash boot block; find out if there's a recovery path outside the OS.
 - [ ] Map the LCD, keys, faders, foot switch; the normal boot screen.
 - [ ] Own UI + Hex Girl boot logo (port the SP-808 graphics engine).

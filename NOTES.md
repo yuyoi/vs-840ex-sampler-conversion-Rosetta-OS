@@ -5,7 +5,7 @@
 - Same platform as the SP-808: **H8S/2655 CPU + TC170C140 (Roland ESP2) DSP**. The sp808 tools are copied into `tools/`.
 - The OS image runs at **0x110000**, 0xF0000 bytes, and ends with a flash sum at 0x1FFF00.
 - Encoder and decoder are proven: re-encoding both stock images reproduces all 16 Roland SMFs byte for byte.
-- **Rosetta OS 0.01** (data only: version string) is built in `work/v001/`. **Not on hardware yet.**
+- **Rosetta OS 0.01 WORKS ON HARDWARE (2026-10-21):** installed from CF via `$SYSPRO2.VS1`; test mode shows `ROSETTA OS 0.01` and flash sum `04947642` (= ours). The boot after the update showed "Setup ERROR" (IDE drive didn't answer the identify at 0x12701C) once (cause unknown; first suspect the CF waking slowly).
 
 ## Files
 | Path | What |
@@ -37,7 +37,7 @@
   - `01 01` end: (~sum(image)) & 0x7F ("Total ChkSUM Err")
   - Each message has a Roland checksum ("MID CheckSUM Err").
 - **The MIDI receiver is in the OS** (0x16AC00-0x16C000, "Receive MIDI-EX?" at 0x16BF46), entered with MODE+INPUT+ENTER at power-on. So **a build that crashes before that point has no MIDI recovery** unless the boot block or mask ROM has its own. Keep early-boot code untouched until a ROM dump says otherwise.
-- **Disk:** the OS knows `$SYSPROG.VS1`, `$SYSPRO2.VS1`, `$USERDAT.VS1`, `$USERID.VS1`. For the plain 840, `$SYSPRO2.VS1` = the raw image ("Update Sysprg?" at power-on). For the EX this is likely the same, but untested. **Never copy files to a VS card with Windows** (see VS cards below).
+- **Disk:** the OS knows `$SYSPROG.VS1`, `$SYSPRO2.VS1`, `$USERDAT.VS1`, `$USERID.VS1`. For the plain 840, `$SYSPRO2.VS1` = the raw image ("Update Sysprg?" at power-on). **Confirmed on the EX 2026-10-21** (v0.01 installed this way). **Never copy files to a VS card with Windows** (see VS cards below).
 - Test mode: MONITOR SEL + SOLO at power-on. It shows the version string and checks the flash sum. There is also "Developer MODE!" (0x1A8AE7, used at 0x11AC24) and an easter-egg string "Fumika!".
 
 ## VS cards (Zip / CF / SD)
