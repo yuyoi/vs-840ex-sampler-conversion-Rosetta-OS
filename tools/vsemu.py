@@ -34,6 +34,7 @@ class VSEmu(h8emu.Emu):
         if a == 0xA00000: return 0x00                       # never busy
         if a == 0xA00001: return 0x00
         if a in self.io_reads: return self.io_reads[a]
+        if 0xFE0000 <= a < 0xFFEC00: raise RuntimeError('read %06X: no RAM there (on-chip RAM = FFEC00-FFFBFF) at pc %06X' % (a, self.pc))
         if 0x200000 <= a < 0x400000 or 0x600000 <= a < 0x800000 or 0x800000 <= a < 0xA00000 \
                 or 0xA00000 <= a < 0xFFF000:
             return self.io.get(a, 0)
@@ -43,6 +44,7 @@ class VSEmu(h8emu.Emu):
         a &= 0xFFFFFF
         if a in (0xA00000, 0xA00001):
             self.lcd_log.append(('c' if a == 0xA00000 else 'd', v & 0xFF)); return
+        if 0xFE0000 <= a < 0xFFEC00: raise RuntimeError('write %06X: no RAM there (on-chip RAM = FFEC00-FFFBFF) at pc %06X' % (a, self.pc))
         if 0x200000 <= a < 0x400000 or 0x600000 <= a < 0xFFF000:
             self.io[a] = v & 0xFF; return
         if 0x100000 <= a < 0x200000: return                 # flash writes (command sequences) ignored
