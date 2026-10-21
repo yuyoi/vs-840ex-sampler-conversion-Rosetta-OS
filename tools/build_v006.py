@@ -9,14 +9,15 @@ home(): saves the LCD shadow buffer (whatever the stock boot drew), draws its ow
 queue (0x11D3F8: type 1 = key {state, code}, type 2 = dial {delta}), and on RECORDER restores the buffer and
 returns into the stock loop. Other entries say COMING SOON for now.
 
-Screen: 136x32 dots = 4 rows of 22 chars (ROM print 0x2E36: r0 col, e0 row, er1 string). Row 0 = Mac style
-title bar (pinstripes + " ROSETTA OS "), rows 1-3 = list, selected row inverted, scrolls.
+Screen: HR-GP5 v0.2 folder-tab look (rui.py): black tab with the bold title, status right, rule, 3 rows,
+inverted selection, scroll bar. Text = the ROM 5x7 font drawn at pixel positions.
 
 usage: python -I tools/build_v006.py [--test]   -> work/v006/ (+ emulator screens with --test)
 """
 import os, shutil, struct, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from h8asm import Asm
+import rui
 from make_smf import build
 from decode_upd import decode
 from build_v001 import flash_sum, SUM_AT
@@ -39,6 +40,9 @@ LCD_LEN = 0x242
 # keys (code numbering = key-name table 0x1F6F2E)
 K_UP, K_DOWN, K_ENTER = 0x1F, 0x21, 0x23
 
+STATUS = 'VS-840EX'
+TAB_W = 4 + 6 * 10 + 1 + 4             # bold 'ROSETTA OS' + margins
+THUMB_H = 12
 ITEMS = ['RECORDER', 'LOOPER', 'FX LAB', 'SAMPLER', 'SYNTH', 'SYSTEM']
 HOOK_AT = 0x11B588
 
@@ -89,8 +93,7 @@ def assemble():
     a.add_b_imm(1, 'r0l'); a.mov_b_to_abs('r0l', CUR); a.bsr16('draw'); a.bra16('loop')
     a.label('enter')
     a.mov_b_from_abs(CUR, 'r0l'); a.cmp_b_imm(0, 'r0l'); a.beq16('recorder')
-    a.jsr(ROM_CLR); a.bsr16('title')
-    a.mov_w_imm(5, 0); a.mov_w_imm(2, 8); a.mov_l_imm('s_soon', 1); a.jsr(ROM_PRINT)
+    a.bsr16('soon')
     a.mov_w_imm(900, 0); a.jsr(ROM_DELAY)
     a.bsr16('draw'); a.bra16('loop')
     a.label('recorder')
@@ -104,19 +107,21 @@ def assemble():
     a.mov_b_ldinc(1, 'r0l'); a.mov_b_st('r0l', 2); a.adds1(2); a.dec_w1(3); a.bne('cl_lp')
     a.rts()
 
-    # title: pinstripes on dot rows 1, 3, 5 of text row 0, then " ROSETTA OS " in the middle
-    a.label('title')
-    a.mov_l_imm(LCD + 3, 1); a.mov_w_imm(STRIPS, 3); a.mov_b_imm(0xFF, 'r0l')
-    a.label('ti_lp')
-    a.mov_b_st('r0l', 1); a.mov_b_st_disp('r0l', 2, 1); a.mov_b_st_disp('r0l', 4, 1)
-    a.add_l_imm(STRIDE, 1); a.dec_w1(3); a.bne('ti_lp')
-    a.mov_w_imm(5, 0); a.mov_w_imm(0, 8); a.mov_l_imm('s_title', 1); a.jsr(ROM_PRINT)
+    # ---- screen pieces (HR-GP5 v0.2 folder-tab look, see rui.py) ----
+    regs = rui.emit(a, RAM + 0x30)
+    a.label('chrome')                                   # tab title, status, rule, frame, scroll frame
+    rui.put_text(a, regs, 4, 0, 's_title', bold=True)
+    rui.set_rect(a, regs, 0, 0, TAB_W, 8, 1)
+    rui.put_text(a, regs, 135 - 6 * len(STATUS), 0, 's_status')
+    rui.set_rect(a, regs, TAB_W, 7, 136 - TAB_W, 1, 0)
+    rui.set_rect(a, regs, 0, 8, 1, 24, 0)
+    rui.set_rect(a, regs, 130, 8, 1, 24, 0)
+    rui.set_rect(a, regs, 135, 8, 1, 24, 0)
     a.rts()
 
-    # draw: clear, title, 3 list rows from TOP, inverted bar on CUR
+    # draw: clear, chrome, 3 rows from TOP, scroll thumb, selection bar on CUR
     a.label('draw')
     a.push_l(4); a.push_l(5); a.push_l(6)
-    # keep CUR visible: TOP = min(TOP, CUR); TOP = max(TOP, CUR - 2)
     a.mov_b_from_abs(CUR, 'r0l'); a.mov_b_from_abs(TOP, 'r0h')
     a.cmp_b_rr('r0h', 'r0l'); a.bcc('dr_t1')                 # CUR >= TOP: ok
     a.mov_b_to_abs('r0l', TOP); a.bra('dr_t2')
@@ -125,37 +130,50 @@ def assemble():
     a.cmp_b_imm(2, 'r1l'); a.bls('dr_t2')
     a.add_b_imm(0xFE, 'r0l'); a.mov_b_to_abs('r0l', TOP)
     a.label('dr_t2')
-    a.jsr(ROM_CLR); a.bsr16('title')
-    # rows: r6 = row 1..3, r5l = index
-    a.mov_w_imm(1, 6)
-    a.mov_b_from_abs(TOP, 'r5l')
+    a.jsr(ROM_CLR); a.bsr16('chrome')
+    a.mov_b_from_abs(TOP, 'r5l'); a.mov_w_imm(8, 4)            # r5l = index, r4 = y
     a.label('dr_row')
-    a.cmp_b_imm(len(ITEMS), 'r5l'); a.bcc('dr_done')
-    a.mov_b_rr('r5l', 'r0l'); a.extu_w(0); a.extu_l(0); a.shll_l2(0)        # er0 = index * 4
-    a.mov_l_imm('items', 1); a.add_l_rr(0, 1); a.mov_l_ind(1, 1)             # er1 = items[index]
-    a.mov_w_imm(1, 0); a.mov_w_rr(6, 8); a.jsr(ROM_PRINT)
-    a.mov_w_imm(20, 0); a.mov_w_rr(6, 8); a.mov_l_imm('s_more', 1); a.jsr(ROM_PRINT)
-    a.add_b_imm(1, 'r5l'); a.add_w_imm(1, 6); a.cmp_w_imm(4, 6); a.bne('dr_row')
+    a.cmp_b_imm(len(ITEMS), 'r5l'); a.bcc16('dr_done')
+    a.mov_b_rr('r5l', 'r0l'); a.extu_w(0); a.extu_l(0); a.shll_l2(0)
+    a.mov_l_imm('items', 1); a.add_l_rr(0, 1); a.mov_l_ind(1, 6)            # er6 = items[index]
+    a.mov_w_imm(4, 0); a.mov_w_to_abs(0, regs[0]); a.mov_w_to_abs(4, regs[1]); a.bsr16('text')
+    a.mov_w_imm(123, 0); a.mov_w_to_abs(0, regs[0]); a.mov_w_to_abs(4, regs[1])
+    a.mov_l_imm('s_more', 6); a.bsr16('text')
+    a.add_b_imm(1, 'r5l'); a.add_w_imm(8, 4); a.cmp_w_imm(32, 4); a.bne16('dr_row')
     a.label('dr_done')
-    # invert row (CUR - TOP + 1): dot rows 8*row .. +7 in every strip
+    # thumb: y from the table by TOP, 12 px tall
+    a.mov_b_from_abs(TOP, 'r0l'); a.extu_w(0); a.extu_l(0)
+    a.mov_l_imm('thumb', 1); a.add_l_rr(0, 1); a.mov_b_ld(1, 'r0l'); a.extu_w(0)
+    a.mov_w_to_abs(0, regs[1]); a.mov_w_imm(132, 0); a.mov_w_to_abs(0, regs[0])
+    a.mov_w_imm(2, 0); a.mov_w_to_abs(0, regs[2]); a.mov_w_imm(THUMB_H, 0); a.mov_w_to_abs(0, regs[3])
+    a.mov_b_imm(0, 'r0l'); a.mov_b_to_abs('r0l', regs[4]); a.bsr16('rect')
+    # selection bar (xor): k = CUR - TOP -> y/h from the bar table
     a.mov_b_from_abs(CUR, 'r0l'); a.mov_b_from_abs(TOP, 'r0h'); a.sub_b_rr('r0h', 'r0l')
-    a.add_b_imm(1, 'r0l'); a.shll_b('r0l'); a.shll_b('r0l'); a.shll_b('r0l')   # *8
-    a.extu_w(0); a.extu_l(0)
-    a.mov_l_imm(LCD + 2, 4); a.add_l_rr(0, 4)                                  # er4 = strip 0, first dot row
-    a.mov_w_imm(STRIPS, 5)
-    a.label('inv_s')
-    a.mov_l_rr(4, 6); a.mov_w_imm(8, 3)
-    a.label('inv_b')
-    a.mov_b_ld(6, 'r0l'); a.not_b('r0l'); a.mov_b_st('r0l', 6); a.adds1(6); a.dec_w1(3); a.bne('inv_b')
-    a.add_l_imm(STRIDE, 4); a.dec_w1(5); a.bne('inv_s')
+    a.extu_w(0); a.extu_l(0); a.shll_l(0)
+    a.mov_l_imm('bars', 1); a.add_l_rr(0, 1)
+    a.mov_b_ld(1, 'r0l'); a.extu_w(0); a.mov_w_to_abs(0, regs[1])
+    a.mov_b_ld_disp(1, 1, 'r0l'); a.extu_w(0); a.mov_w_to_abs(0, regs[3])
+    a.mov_w_imm(1, 0); a.mov_w_to_abs(0, regs[0]); a.mov_w_imm(129, 0); a.mov_w_to_abs(0, regs[2])
+    a.mov_b_imm(1, 'r0l'); a.mov_b_to_abs('r0l', regs[4]); a.bsr16('rect')
+    a.pop_l(6); a.pop_l(5); a.pop_l(4)
+    a.rts()
+
+    # coming soon page
+    a.label('soon')
+    a.push_l(4); a.push_l(5); a.push_l(6)
+    a.jsr(ROM_CLR); a.bsr16('chrome')
+    rui.put_text(a, regs, (130 - 6 * 11) // 2, 16, 's_soon')
     a.pop_l(6); a.pop_l(5); a.pop_l(4)
     a.rts()
 
     # data
-    a.label('s_title'); a.string(' ROSETTA OS ')
+    a.label('s_title'); a.string('ROSETTA OS')
+    a.label('s_status'); a.string(STATUS)
     a.label('s_more'); a.string('>')
     a.label('s_soon'); a.string('COMING SOON')
     for i, s in enumerate(ITEMS): a.label('it%d' % i); a.string(s)
+    a.label('thumb'); a.raw(bytes(8 + 4 * k for k in range(len(ITEMS) - 2)))
+    a.label('bars'); a.raw(bytes([8, 8, 15, 9, 23, 9]))
     a.align2()
     a.label('items')
     for i in range(len(ITEMS)): a.dc_l('it%d' % i)
