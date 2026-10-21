@@ -96,3 +96,11 @@ Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No 
 - **Boot splash** = 0x113DC0 (called from the main boot at 0x11AA4C, right after LCD init + clear): blit 136x32 from **0x1B57EF** (544 bytes). Second small bitmap 0x1B56AF (320 bytes) at x=0x3B from 0x113DDA (called from 0x113EE4).
 - Main boot = 0x11A9D2 (from the OS entry 0x110700 -> 0x1108E6): init, LCD, splash, 500 ms key-combo window, combos, update-file check 0x11B3DA, then the main UI.
 - tools/vsemu.py = VS memory map on h8emu (ROM + OS + LCD regs); runs ROM routines like 0x2E36 natively. A full boot stops at LCD waits that need interrupts (0x42B0 waits for 0xFFF88C == 4).
+
+## Events, RAM, the Rosetta home hook (0.06)
+- Event queue: ring of 128 x 12 bytes at 0x5B7A34, write index 0x5B8034, read index 0x5B8035. 0x11D3F8(dst on stack) pops one (empty -> type 0); 0x11D44E posts (12-byte event on the stack); 0x11D4CC flushes.
+- Event = w type, w a, w b, w c, l timestamp. **Type 1 = panel key {a = 1 press, b = key code (+ shift offsets 0x5B7926/0x5B7928)}** (scanner 0x11C6E2); **type 2 = dial {a = signed delta x accel}** (encoder IRQ 0x11C916 reads GA 0x200020 high byte).
+- Stock main loop 0x11B588: pops an event, dispatches by type (1 0x14E84E, 2 0x177898, 3 0x15EEC6, 4 0x163AF6), then 0x117D48 (the huge hand-written screen switch). Housekeeping each pass: 0x142A20, 0x177612, 0x13E6B6, 0x115AE6.
+- RAM: init data 0x5B58E4 (from flash 0x1F6EEE, 0x11BC), bss 0x5B6AA0-0x5EF32A, heap 0x5EF32A-0x5FFFFF (cleared at boot). Low DRAM: LCD 0x403200, disk sector buffer 0x403464 (64 KB), serial rings 0x401200 + n*0x800, big buffers from 0x413A8C. **On-chip 0xFFDC00-0xFFEBFF is unused (only stack depth); Rosetta's variables live at 0xFFDC00.**
+- Free flash: 0x1F80AA-0x1FFEFF (~32 KB). Rosetta code at 0x1F9000.
+- **0.06 hook:** 0x11B588 `mov.w @er5,r0; cmp.w #3,r0` -> `jsr hook; nop`. hook runs home() once per power-on (magic 'RSTA' at 0xFFDC00), then redoes the 2 instructions; rts keeps the CCR for the following bne. home saves the LCD buffer, runs its own menu on Roland's event queue, restores the buffer on RECORDER.
