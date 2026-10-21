@@ -105,3 +105,24 @@ Flash map: 0x100000-0x10FFFF = user area ($USERDAT), 0x110000-0x1FFFFF = OS. No 
 - Free flash: 0x1F80AA-0x1FFEFF (~32 KB). Rosetta code at 0x1F9000.
 - **UI rule (user): the folder-tab bar is for the home screen only; pages entered from it use the full 32 px (no top bar).**
 - **0.06 hook:** 0x11B588 `mov.w @er5,r0; cmp.w #3,r0` -> `jsr hook; nop`. hook runs home() once per power-on (magic 'RSTA' at 0xFFDC00), then redoes the 2 instructions; rts keeps the CCR for the following bne. home saves the LCD buffer, runs its own menu on Roland's event queue, restores the buffer on RECORDER.
+
+## DSP (ESP2 TC170C140) host interface (found 2026-10-21 by tracing the init in vsemu)
+- **Same host port scheme as the SP-808, at CS4 0x800000:** program/coefficient window 0x800000 + 4*i (4 bytes per
+  word, ~768 words), mode latch **0x802003** (bits 1-0: 0 raw word write, 1 coefficient write; SP-808: 0xC02003),
+  status/busy read at **0x800003** before each write.
+- No code has the constant 0x80xxxx: the ROM DSP routines read the port addresses from pointers in the ROM at
+  0x117A (latch/window base) and 0x117E (status), and keep a shadow of the port bytes at RAM 0x5B57FE.
+- ROM DSP API (OS call counts): 0x4FF6 (699, parameter/coefficient write), 0x5514 (54), 0x5E78 (52), 0x4DCA (4,
+  from the effect code 0x17BDCE..: latch/mode write), 0x4E10 (uses the two **768-word RAM images 0x5B3FFA and
+  0x5B4BFA**, 0xC00 bytes each).
+- 0x12D7FC (boot, mixer init) writes 86 raw words + coefficients (644 raw + 352 coefficient byte writes); the full
+  program load happens elsewhere (effect/patch load around 0x17BDxx and 0x133690).
+- DSP program tables in the OS: 4-byte entries = 3-byte ESP2 word (esp.py ROM order) + a tag byte (00 / 0C / 01),
+  around 0x1E6000-0x1F6000; parameter definition pointer tables at 0x1D1A36, 0x1D9CC4 ... (effect algorithms).
+- Next: capture the full 768-word image (RAM 0x5B3FFA after the patch load) and decode it with esp.py: find the audio
+  inputs/outputs (codec AK4520A, GUITAR IN, INPUTS, MASTER OUT) and the external delay RAM (HM514800, 4 Mbit).
+
+## Direction (user, 2026-10-21): no recorder, the VS becomes a sampler/synth
+- Rosetta takes over the whole ESP2 (the SP-808 KEYS sampler + DDS-DSP synth programs are the same instruction set).
+- DSP-RAM sampling = short (~5-6 s total in 4 Mbit) but instant / pitched / polyphonic; long samples later via disk.
+- Menu: SAMPLER / SYNTH / FX / SYSTEM; the stock VS stays reachable only as a hidden SYSTEM entry (recovery/debug).
