@@ -1,0 +1,6 @@
+upd/
+*.bin
+__pycache__/
+xref*.pkl
+work/
+docs/
