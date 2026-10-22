@@ -57,9 +57,10 @@ Part of the Rosetta family, after [Rosetta ROM](https://github.com/yuyoi/Rompler
 | install from CF (disk update), card tools without Windows writing to the card | works on hardware |
 | boot ROM dump (0.03), Roland-chan splash | works on hardware |
 | boot animation + Rosetta home menu (0.07) | **works on hardware** |
-| way back from the recorder to Rosetta | not yet (power-cycle) |
+| SOUND TEST (0.08): own DSP block in core 0, tone 440 / input thru / both / off | built; thru silent on hw, being debugged over MIDI |
+| MIDI remote (0.09): keys, dial, ping, memory read/write, live DSP word writes over SysEx + `vsremote.py` loop tests | emulator-tested |
 | "Setup ERROR -32746" with a CF card in place of the Zip (stock behaviour, ENTER continues) | being investigated |
-| looper, FX, sampler, synth | not started (menu placeholders) |
+| sampler / synth (new direction: no recorder) | next: the VS's ESP2 = the SP-808's two-core chip, KEYS/DDS port |
 
 ## Use
 
@@ -93,6 +94,8 @@ built images or SMFs: share this repo instead.
 |---|---|
 | `tools/decode_upd.py`, `tools/make_smf.py` | Roland SMF update <-> OS image, all checksums recomputed |
 | `tools/build_v001.py` .. `tools/build_v007.py` | each version as a build script (`build_v007.py` = current) |
+| `tools/vsdsp.py` | Rosetta DSP blocks for core 0 (saw / thru), checked in the esp.py cycle simulator |
+| `tools/midirem.py`, `tools/vsremote.py`, `tools/winmidi.py` | MIDI remote in the firmware; PC side: keys, SysEx, record + analyse audio |
 | `tools/rui.py` | Rosetta UI library: pixel text with the ROM font, bold, rectangles, clipping (H8S code) |
 | `tools/vsemu.py` | VS-840EX memory map on the H8S emulator (ROM + OS + LCD), faults on non-existent RAM |
 | `tools/send_smf.py` | play the update SMFs to a MIDI out (winmm SysEx) |
@@ -116,7 +119,9 @@ built images or SMFs: share this repo instead.
 - [x] Dump the boot ROM (0.03); map its reset path and recovery.
 - [x] LCD, font, events, key combos; Roland-chan boot screen + animation; Rosetta home menu (0.07).
 - [ ] Kill "Setup ERROR" with CF cards; way back from the recorder to Rosetta.
-- [ ] MIDI monitor + MIDI note -> phrase trigger (first step of the sampler).
+- [x] SOUND TEST (0.08) + MIDI remote and loop-test tool (0.09).
+- [ ] Audio I/O confirmed on hw (tone, thru) over the MIDI + audio loop.
+- [ ] Sampler / synth: port the SP-808 KEYS + DDS-DSP programs to the VS's ESP2.
 - [ ] Map the DSP program (one ESP2: mixer, EQ, effects) and the free budget.
 - [ ] Looper on the tracks: layers = tracks, faders = levels, foot switch = REC / PLAY / DUB / undo.
 - [ ] Own DSP effects (port the SP-808 MFX), sampler, DDS-DSP synth.
